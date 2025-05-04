@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 1em;
+            text-align: center;
+        }
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 2em auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        #messages {
+            flex: 1;
+            padding: 1em;
+            overflow-y: auto;
+            height: 400px;
+        }
+        .message {
+            margin-bottom: 1em;
+        }
+        .user {
+            text-align: right;
+        }
+        .bot {
+            text-align: left;
+        }
+        #input-area {
+            display: flex;
+            padding: 1em;
+            background-color: #eee;
+        }
+        #user-input {
+            flex: 1;
+            padding: 0.5em;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #send-btn, #upload-btn, #model-select {
+            margin-left: 0.5em;
+            padding: 0.5em 1em;
+            font-size: 1em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #send-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #upload-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        #model-select {
+            background-color: #555;
+            color: white;
+        }
+        #multimedia-preview {
+            max-width: 100%;
+            margin-top: 1em;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Web-based Chat Assistant</h1>
+        <div>
+            <label for="model-select">Select Model:</label>
+            <select id="model-select">
+                <option value="model1">Model 1</option>
+                <option value="model2">Model 2</option>
+                <!-- Add more models as needed -->
+            </select>
+        </div>
+    </header>
+    <div id="chat-container">
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." />
+            <button id="send-btn">Send</button>
+            <button id="upload-btn">Upload Media</button>
+            <input type="file" id="media-upload" accept="image/*,video/*" style="display:none" />
+        </div>
+        <div id="multimedia-preview"></div>
+    </div>
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const uploadBtn = document.getElementById('upload-btn');
+        const mediaUpload = document.getElementById('media-upload');
+        const multimediaPreview = document.getElementById('multimedia-preview');
+        const modelSelect = document.getElementById('model-select');
+
+        let conversationHistory = [];
+
+        /**
+         * Append a message to the chat window.
+         * @param {string} text - The message text.
+         * @param {string} sender - 'user' or 'bot'.
+         */
+        function appendMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + sender;
+            msgDiv.innerText = text;
+            messagesDiv.appendChild(msgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        /**
+         * Send user message to backend API and handle response.
+         */
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+            appendMessage(message, 'user');
+            conversationHistory.push({ role: 'user', content: message });
+            userInput.value = '';
+
+            // Prepare payload
+            const payload = {
+                messages: conversationHistory,
+                model: modelSelect.value
+            };
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.status}`);
+                }
+                const data = await response.json();
+                const reply = data.reply;
+                appendMessage(reply, 'bot');
+                conversationHistory.push({ role: 'bot', content: reply });
+            } catch (error) {
+                appendMessage('Error fetching response.', 'bot');
+                console.error(error);
+            }
+        }
+
+        /**
+         * Handle media upload.
+         */
+        function handleMediaUpload() {
+            mediaUpload.click();
+        }
+
+        /**
+         * Preview selected media.
+         */
+        mediaUpload.addEventListener('change', () => {
+            multimediaPreview.innerHTML = '';
+            const files = mediaUpload.files;
+            if (files.length === 0) return;
+            Array.from(files).forEach(file => {
+                const url = URL.createObjectURL(file);
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.id = 'multimedia-preview';
+                    multimediaPreview.appendChild(img);
+                } else if (file.type.startsWith('video/')) {
+                    const video = document.createElement('video');
+                    video.src = url;
+                    video.controls = true;
+                    video.width = 300;
+                    multimediaPreview.appendChild(video);
+                }
+            });
+        });
+
+        /**
+         * Send message on button click.
+         */
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        /**
+         * Trigger media upload dialog.
+         */
+        uploadBtn.addEventListener('click', handleMediaUpload);
+
+        /**
+         * Optional: handle media upload submission to backend if needed.
+         * For now, just preview.
+         */
+    </script>
+</body>
+</html>
